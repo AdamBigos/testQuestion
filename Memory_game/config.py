@@ -8,8 +8,7 @@ class BaseSettings:
     RED = (255, 0, 0)
     BLACK = (0, 0, 0)
     SNAKE_GREEN = (81, 110, 17)
-    LIGHTGREEN = (142, 192, 17)
-    ROTTEN = (122, 65, 0)
+
 
     # screen size
     WIDTH = 720

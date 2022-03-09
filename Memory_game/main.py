@@ -1,13 +1,14 @@
 """
 Memory Game by Adam Bigos
 Made with PyGame
+I know the code is terrible but time was pressing
 """
+import time
 
 import pygame, sys
 from config import BaseSettings, game_window
 import random
 from utils import draw_text, tile_coordinates, possible_choices, word_coordinates
-from resources import Food, Snake, Direction
 
 # Checks for errors encountered
 check_errors = pygame.init()
@@ -32,7 +33,7 @@ for x in txt_file:
     words_pool.append(x.replace("\n", ""))
 
 
-class PythonEater:
+class MemoryGame:
     def start_menu(self, difficulty_lvl):
 
         selected = 0
@@ -136,29 +137,31 @@ class PythonEater:
         words_location = []
         possibilities = possible_choices()
         bad_player = False
+        tiles_flipped = []
+        delay = 0
 
         if difficulty == "EASY":
             tries_left = 8
             word_to_guess = 4
             tiles_location = tile_coordinates(2)
             words_location = word_coordinates(2)
+            del possibilities[8:16]
         elif difficulty == "HARD":
             tries_left = 15
             word_to_guess = 8
             tiles_location = tile_coordinates(4)
-            words_location = word_coordinates(2)
+            words_location = word_coordinates(4)
         elif difficulty == "IMPOSSIBLE":
             tries_left = 1
             word_to_guess = 8
             tiles_location = tile_coordinates(4)
-            words_location = word_coordinates(2)
+            words_location = word_coordinates(4)
 
+        words_flipped_or_guessed = []
         game_word_pool = random.choices(words_pool, k=word_to_guess)
         game_word_pool += game_word_pool
         random.shuffle(game_word_pool)
-        print(game_word_pool)
-        word_location_dictionary = {possibilities[i]: [game_word_pool[i], tiles_location[i]] for i in range(len(game_word_pool)) }
-        print(word_location_dictionary)
+        word_location_dictionary = {possibilities[i]: [game_word_pool[i], tiles_location[i], words_location[i]] for i in range(len(game_word_pool)) }
 
         while running:
             for event in pygame.event.get():
@@ -177,8 +180,18 @@ class PythonEater:
                             bad_player = False
                             if len(player_selection_storage) > 0:
                                 if player_selection != player_selection_storage[0]:
+                                    tiles_flipped.append(word_location_dictionary[player_selection][1])
+                                    words_flipped_or_guessed.append([word_location_dictionary[player_selection][0],
+                                                                     word_location_dictionary[player_selection][2]])
+                                    tiles_location.remove(word_location_dictionary[player_selection][1])
+                                    possibilities.remove(player_selection)
                                     player_selection_storage.append(player_selection)
                             else:
+                                tiles_flipped.append(word_location_dictionary[player_selection][1])
+                                words_flipped_or_guessed.append([word_location_dictionary[player_selection][0],
+                                                                 word_location_dictionary[player_selection][2]])
+                                tiles_location.remove(word_location_dictionary[player_selection][1])
+                                possibilities.remove(player_selection)
                                 player_selection_storage.append(player_selection)
                             player_selection = ""
                     elif event.unicode.isprintable():
@@ -197,7 +210,7 @@ class PythonEater:
             draw_text("Please type your guess (example: 'A1')", 30, BaseSettings.BLACK, None, 360, 5, "center")
             pygame.draw.rect(game_window, BaseSettings.RED, pygame.Rect(340, 65, 40, 25), 2)
             draw_text(player_selection, 30, BaseSettings.BLACK, None, 360, 70, "center")
-            draw_text("Tries left: " + str(tries_left), 30, BaseSettings.BLACK, None, 470, 100, "topleft")
+            draw_text("tries left: " + str(tries_left), 30, BaseSettings.BLACK, None, 470, 100, "topleft")
             draw_text("A", 30, BaseSettings.BLACK, None, 182, 135, "center")
             draw_text("B", 30, BaseSettings.BLACK, None, 302, 135, "center")
             draw_text("C", 30, BaseSettings.BLACK, None, 422, 135, "center")
@@ -209,39 +222,57 @@ class PythonEater:
                 draw_text("3", 30, BaseSettings.BLACK, None, 100, 283, "center")
                 draw_text("4", 30, BaseSettings.BLACK, None, 100, 338, "center")
             if bad_player:
-                draw_text("WRONG try again", 30, BaseSettings.BLACK, None, 360, 35, "center")
+                draw_text("WRONG try again", 30, BaseSettings.RED, None, 360, 35, "center")
 
             for i in range(len(tiles_location)):
                 pygame.draw.rect(game_window, BaseSettings.SNAKE_GREEN, pygame.Rect(tiles_location[i][0], tiles_location[i][1], 115, 50))
 
-            for i in range(len(words_location)):
-                draw_text(game_word_pool[i], 30, BaseSettings.RED, None, words_location[i][0], words_location[i][1], "center")
+            for i in range(len(words_flipped_or_guessed)):
+                draw_text(words_flipped_or_guessed[i][0], 30, BaseSettings.RED, None, words_flipped_or_guessed[i][1][0], words_flipped_or_guessed[i][1][1], "center")
 
             # Game conditions
             if tries_left == 0:
-                self.game_over("loser")
+                self.game_over("I'm sorry you lost")
+
+            if len(tiles_location) == 0:
+                self.game_over("CONGRATULATIONS YOU WON")
 
             if len(player_selection_storage) > 1:
-                if player_selection_storage[0] == player_selection_storage[1]:
-                    pass
-                else:
-                    player_selection_storage = []
-                    tries_left -= 1
+                delay +=1
 
+            if delay > 30:
+                if word_location_dictionary[player_selection_storage[0]][0] == word_location_dictionary[player_selection_storage[1]][0]:
+                    tiles_flipped.clear()
+                    player_selection_storage.clear()
+                    delay = 0
+
+                else:
+                    tiles_location.extend(tiles_flipped)
+                    words_flipped_or_guessed.remove(
+                        [word_location_dictionary[player_selection_storage[0]][0],
+                         word_location_dictionary[player_selection_storage[0]][2]])
+                    words_flipped_or_guessed.remove(
+                        [word_location_dictionary[player_selection_storage[1]][0],
+                         word_location_dictionary[player_selection_storage[1]][2]])
+                    tiles_flipped.clear()
+                    possibilities.extend(player_selection_storage)
+                    player_selection_storage.clear()
+                    tries_left -= 1
+                    delay = 0
 
             # Refresh game screen
             pygame.display.update()
             # Refresh rate
             BaseSettings.fps_controller.tick(60)
 
-    def game_over(self, final_score, difficulty):
+    def game_over(self, final_score):
         running = True
         player_name = ""
         while running:
             game_window.fill(BaseSettings.BLACK)
 
             draw_text(
-                "WELL DONE!", 70, BaseSettings.LIGHTGREEN, None, BaseSettings.WIDTH / 2, 60, "center"
+                "WELL DONE!", 70, BaseSettings.BLUE, None, BaseSettings.WIDTH / 2, 60, "center"
             )
             draw_text(
                 "Enter your name:",
@@ -265,7 +296,7 @@ class PythonEater:
                         pygame.quit()
                         sys.exit()
                     elif event.key == pygame.K_RETURN:
-                        self.end_game_screen(final_score, difficulty, player_name)
+                        self.end_game_screen(final_score, player_name)
                     elif event.unicode.isalpha():
                         player_name += event.unicode
                     elif event.key == pygame.K_BACKSPACE:
@@ -276,14 +307,14 @@ class PythonEater:
             BaseSettings.fps_controller.tick(60)
 
     # Game Over with option to start again with the same difficulty level
-    def end_game_screen(self, final_score, difficulty, player_name):
+    def end_game_screen(self, final_score, player_name):
         running = True
         player = player_name
         while running:
             game_window.fill(BaseSettings.BLACK)
 
             draw_text(
-                "PythonEater",
+                "Memory Game",
                 100,
                 BaseSettings.SNAKE_GREEN,
                 None,
@@ -292,13 +323,10 @@ class PythonEater:
                 "center",
             )
             draw_text(
-                player, 70, BaseSettings.LIGHTGREEN, None, BaseSettings.WIDTH / 2, 160, "center"
+                player, 70, BaseSettings.BLUE, None, BaseSettings.WIDTH / 2, 160, "center"
             )
             draw_text(
-                "SCORE", 30, BaseSettings.SNAKE_GREEN, None, BaseSettings.WIDTH / 2, 240, "center"
-            )
-            draw_text(
-                str(final_score),
+                final_score,
                 50,
                 BaseSettings.SNAKE_GREEN,
                 None,
@@ -307,10 +335,10 @@ class PythonEater:
                 "center",
             )
             draw_text(
-                "Press ENTER to PLAY AGAIN", 30, BaseSettings.LIGHTGREEN, None, 219, 380, "topleft"
+                "Press ENTER to PLAY AGAIN", 30, BaseSettings.BLUE, None, 219, 380, "topleft"
             )
 
-            pygame.draw.rect(game_window, BaseSettings.LIGHTGREEN, (189, 355, 342, 70), 10, 19)
+            pygame.draw.rect(game_window, BaseSettings.BLUE, (189, 355, 342, 70), 10, 19)
 
             pygame.display.update()
             for event in pygame.event.get():
@@ -322,11 +350,11 @@ class PythonEater:
                         pygame.quit()
                         sys.exit()
                     elif event.key == pygame.K_RETURN:
-                        self.start_menu(difficulty)
+                        self.start_menu("EASY")
 
             # Refresh game screen
             pygame.display.update()
             BaseSettings.fps_controller.tick(60)
 
 
-PythonEater().start_menu("EASY")
+MemoryGame().start_menu("EASY")
